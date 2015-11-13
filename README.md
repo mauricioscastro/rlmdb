@@ -1,5 +1,5 @@
 #lldb
-a (lmdb)[http://symas.com/mdb/] + (leveldb)[https://github.com/google/leveldb] wrapper experiment
+###a (lmdb)[http://symas.com/mdb/] + (leveldb)[https://github.com/google/leveldb] wrapper experiment
 
 this is too a way to start cathing up with (gradle)[http://gradle.org/].
 
@@ -10,6 +10,6 @@ allied to this there's the idea of replicating basex data (now laying over lmdb)
 in this case I will have leveldb bufering single inserts an small sized write batches and also to avoid stale reads while replicating through bookkeeper ledgers. this will be done for basex-lmdb specifically, the idea follows in a simple draft image.
 
 
-![My image](https://raw.githubusercontent.com/mauricioscastro/basex-lmdb/master/www/img/lldb_idea.png)
+![lldb](https://raw.githubusercontent.com/mauricioscastro/basex-lmdb/master/www/img/lldb_idea.png)
 
 
