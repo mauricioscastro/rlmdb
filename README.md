@@ -3,7 +3,7 @@
 
 this is too a way to start catching up with [gradle](http://gradle.org/).
 
-after finishing the initial version of [basex-lmdb](http://mauricioscastro.github.io/basex-lmdb/) I figured single inserts resulting from XQuery updates faces long delays when huge bulks are being created (large XML documents).
+after finishing the initial version of [basex-lmdb](https://github.com/mauricioscastro/basex-lmdb) I figured single inserts resulting from XQuery updates faces long delays when huge bulks are being created (large XML documents).
 
 allied to this there's the idea of replicating basex data (now laying over lmdb), so after trying some options at hand like jgroups-raft, kafka and bookkeeper I will give bookkeeper a go and put these 3 together to be used in basex-lmdb. 
 
