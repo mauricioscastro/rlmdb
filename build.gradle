@@ -1,6 +1,10 @@
 apply plugin: 'java'
 apply plugin: 'idea'
 
+group = 'br.net.bsocial.db'
+version = 'Spring-2015'
+description = 'a lmdb + leveldb + bookkeeper replication experiment'
+
 idea {
     module {
         downloadJavadoc = false
