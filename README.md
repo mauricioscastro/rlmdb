@@ -10,7 +10,7 @@ allied to this there's the idea of replicating basex data (now laying over lmdb)
 at hand like jgroups-raft, kafka and bookkeeper I will give bookkeeper a go and put these 3 together to 
 be used in basex-lmdb. 
 
-in this case I will have leveldb bufering single inserts an small sized write batches and also to avoid 
+in this case I will have leveldb bufering single inserts and small sized write batches and also to avoid 
 stale reads while replicating through bookkeeper ledgers. this will be done for basex-lmdb specifically, 
 the idea follows in a simple draft image.
 
