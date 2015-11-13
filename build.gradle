@@ -1,2 +1,20 @@
 apply plugin: 'java'
+apply plugin: 'idea'
+
+idea {
+    module {
+        downloadJavadoc = false
+        downloadSources = true
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile 'org.deephacks.lmdbjni:lmdbjni-linux64:0.4.4'
+    compile 'org.fusesource.leveldbjni:leveldbjni-linux64:1.8'
+    compile 'org.apache.bookkeeper:bookkeeper-server:4.3.1'
+}
 
