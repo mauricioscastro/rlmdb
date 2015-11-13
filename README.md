@@ -7,8 +7,7 @@ after finishing the initial version of [basex-lmdb](https://github.com/mauricios
 single inserts resulting from XQuery updates faces long delays when huge bulks are being created (new large XML documents).
 
 allied to this there's the idea of replicating basex data (now laying over lmdb), so after trying some options 
-at hand like jgroups-raft, kafka and bookkeeper I will give bookkeeper a go and put these 3 together to 
-be used in basex-lmdb. 
+at hand like jgroups-raft, kafka and bookkeeper I will give bookkeeper a go for replicating the lmdb key/values. 
 
 the wrapper classes will be oriented to lmdb. first because the [related project](https://github.com/mauricioscastro/basex-lmdb) 
 (running isolated) was developed first with lmdb in mind only and second because leveldb role here is that 
