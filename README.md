@@ -11,8 +11,8 @@ at hand like jgroups-raft, kafka and bookkeeper I will give bookkeeper a go and 
 be used in basex-lmdb. 
 
 the wrapper classes will be oriented to lmdb. first because the [related project](https://github.com/mauricioscastro/basex-lmdb) 
-(running isolated) was developed first with lmdb in mind only and second because leveldb role here is 
-of a auxiliary write cache.  
+(running isolated) was developed first with lmdb in mind only and second because leveldb role here is that 
+of an auxiliary write cache.  
 
 in this case I will have leveldb bufering single inserts and small sized write batches and also to avoid 
 stale reads while replicating through bookkeeper ledgers. this will be done for basex-lmdb specifically, 
