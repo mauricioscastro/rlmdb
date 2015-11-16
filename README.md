@@ -1,7 +1,7 @@
 #rlmdb
 ####Replicated LMDB: a [lmdb](http://symas.com/mdb/) + [leveldb](https://github.com/google/leveldb) + [bookkeeper](http://bookkeeper.apache.org) experiment
 
-this is too a way to start catching up with [gradle](http://gradle.org/).
+and a means to start catching up with [gradle](http://gradle.org/).
 
 after finishing the initial version of [basex-lmdb](https://github.com/mauricioscastro/basex-lmdb) I figured 
 single inserts resulting from XQuery updates faces long delays when huge bulks are being created (new large XML documents).

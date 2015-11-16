@@ -43,7 +43,9 @@ jar {
             from "build/libs/$archiveName"
             rename archiveName, "$baseName.$extension"
             into "./"
+        }
 
+        copy {
             from configurations.runtime
             into "./lib"
         }
@@ -52,6 +54,7 @@ jar {
 
 clean {
     delete "./lib"
+    delete "./$jar.baseName.$jar.extension"
 }
 
 
