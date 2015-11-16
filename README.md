@@ -1,5 +1,5 @@
 #rlmdb
-####Replicated LMDB: a [lmdb](http://symas.com/mdb/) + [leveldb](https://github.com/google/leveldb) + [bookkeeper replication](http://bookkeeper.apache.org) experiment
+####Replicated LMDB: a [lmdb](http://symas.com/mdb/) + [leveldb](https://github.com/google/leveldb) + [bookkeeper](http://bookkeeper.apache.org) experiment
 
 this is too a way to start catching up with [gradle](http://gradle.org/).
 
