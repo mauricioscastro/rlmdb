@@ -4,7 +4,7 @@ apply plugin: 'maven'
 
 group = 'br.net.bsocial.db'
 version = 'Spring-2015'
-description = 'a lmdb + leveldb + bookkeeper replication experiment'
+description = 'replicated lmdb: a lmdb + leveldb + bookkeeper experiment'
 
 idea {
     module {
@@ -17,9 +17,41 @@ repositories {
     mavenCentral()
 }
 
+compileJava {
+    options.incremental = false
+    sourceCompatibility = 1.7
+    targetCompatibility = 1.7
+}
+
 dependencies {
     compile 'org.deephacks.lmdbjni:lmdbjni-linux64:0.4.4'
     compile 'org.fusesource.leveldbjni:leveldbjni-linux64:1.8'
     compile 'org.apache.bookkeeper:bookkeeper-server:4.3.1'
 }
+
+jar {
+
+    manifest.attributes (
+        'Class-Path': configurations.runtime.files.collect { 'lib/'+it.name }.join(' ')
+    )
+
+    doLast {
+
+        mkdir './lib'
+
+        copy {
+            from "build/libs/$archiveName"
+            rename archiveName, "$baseName.$extension"
+            into "./"
+
+            from configurations.runtime
+            into "./lib"
+        }
+    }
+}
+
+clean {
+    delete "./lib"
+}
+
 
