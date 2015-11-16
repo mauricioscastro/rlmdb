@@ -17,6 +17,6 @@ in this case I will have leveldb bufering single inserts and small sized write b
 stale reads while replicating through bookkeeper ledgers. this will be done for basex-lmdb specifically, 
 the idea follows in a simple draft image.
 
-![rldb](https://raw.githubusercontent.com/mauricioscastro/lldb/gh-pages/images/lldb_idea.png)
+![rldb](https://raw.githubusercontent.com/mauricioscastro/lldb/gh-pages/images/rldb_idea.png)
 
 
