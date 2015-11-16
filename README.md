@@ -10,7 +10,7 @@ allied to this there's the idea of replicating basex data (now laying over lmdb)
 at hand like jgroups-raft, kafka and bookkeeper I will give bookkeeper a go for replicating the lmdb key/values. 
 
 the wrapper classes will be oriented to lmdb. first because the [related project](https://github.com/mauricioscastro/basex-lmdb) 
-(running isolated) was developed first with lmdb in mind only and second because leveldb role here is that 
+(running isolated) was developed with lmdb in mind and second because leveldb role here is that 
 of an auxiliary write cache.  
 
 in this case I will have leveldb bufering single inserts and small sized write batches and also to avoid 
