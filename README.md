@@ -1,4 +1,4 @@
-#rldb
+#rlmdb
 ####a [lmdb](http://symas.com/mdb/) + [leveldb](https://github.com/google/leveldb) + [bookkeeper replication](http://bookkeeper.apache.org) experiment
 
 this is too a way to start catching up with [gradle](http://gradle.org/).
@@ -17,6 +17,6 @@ in this case I will have leveldb bufering single inserts and small sized write b
 stale reads while replicating through bookkeeper ledgers. this will be done for basex-lmdb specifically, 
 the idea follows in a simple draft image.
 
-![rldb](https://raw.githubusercontent.com/mauricioscastro/lldb/gh-pages/images/rldb_idea.png)
+![rlmdb](https://raw.githubusercontent.com/mauricioscastro/lldb/gh-pages/images/rlmdb_idea.png)
 
 
