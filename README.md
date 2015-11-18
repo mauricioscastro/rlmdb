@@ -19,4 +19,7 @@ the idea follows in a simple draft image.
 
 ![rlmdb](https://raw.githubusercontent.com/mauricioscastro/lldb/gh-pages/images/rlmdb_idea.png)
 
+the idea around the bookkeeper ledgers is that each represents a write transaction and its entries represents 
+this transaction's operations originated in the leader node.
+
 
