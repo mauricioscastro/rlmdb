@@ -13,9 +13,10 @@ the wrapper classes will be oriented to lmdb. first because the [related project
 (running isolated) was developed with lmdb in mind and second because leveldb role here is that 
 of an auxiliary write cache only.  
 
-in this case I will have leveldb bufering single inserts and small sized write batches and also to avoid 
-stale reads while replicating through bookkeeper ledgers. this will be done for basex-lmdb specifically, 
-the idea follows in a simple draft image.
+in this case we will have leveldb bufering single inserts and small sized write batches and also to avoid 
+stale reads while replicating through bookkeeper ledgers. an expected corollary of this is to gain faster data ingestion. 
+
+**this will be done for basex-lmdb specifically**, the idea follows in a simple draft image.
 
 ![rlmdb](https://raw.githubusercontent.com/mauricioscastro/lldb/gh-pages/images/rlmdb_idea.png)
 

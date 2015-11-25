@@ -1,4 +1,4 @@
-package lldb;
+package rlmdb;
 
 public class EnvTest {
 }
