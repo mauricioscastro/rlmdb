@@ -1,5 +1,6 @@
 package rlmdb;
 
+import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
 import com.google.common.primitives.Bytes;
 import org.apache.bookkeeper.bookie.BookieException;
@@ -22,6 +23,7 @@ import org.apache.curator.framework.recipes.leader.LeaderSelector;
 import org.apache.curator.framework.recipes.leader.LeaderSelectorListener;
 import org.apache.curator.framework.state.ConnectionState;
 import org.apache.curator.retry.ExponentialBackoffRetry;
+import org.apache.curator.utils.ZKPaths;
 import org.apache.log4j.ConsoleAppender;
 import org.apache.log4j.Level;
 import org.apache.log4j.LogManager;
@@ -36,8 +38,6 @@ import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
 import org.apache.zookeeper.server.quorum.QuorumPeer;
 import org.apache.zookeeper.server.quorum.QuorumPeerConfig;
 import org.fusesource.lmdbjni.Constants;
-import org.iq80.leveldb.DB;
-import org.iq80.leveldb.Options;
 
 import javax.management.JMException;
 import java.io.File;
@@ -50,16 +50,17 @@ import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-import static org.fusesource.leveldbjni.JniDBFactory.factory;
+import static org.fusesource.lmdbjni.Constants.bytes;
 
-public class Env extends org.fusesource.lmdbjni.Env implements LeaderSelectorListener {
+public class Env implements LeaderSelectorListener {
 
     private static final Logger logger = Logger.getLogger(Env.class);
 
     private static final String ZKPATH = "/rlmdb";
+    private static final String DB_NAME_MAP_PATH = ZKPATH + "/dbmap";
     private static final String ELECTION_PATH = ZKPATH + "/election";
-    private static final String LOG_PATH = ZKPATH + "/log";
-    private static final String LOG_REMOVED_PATH = LOG_PATH + "/removed";
+    private static final String LOG_LIST_PATH = ZKPATH + "/log";
+    private static final String LOG_REMOVED_PATH = LOG_LIST_PATH + "/removed";
 
     private static QuorumPeer quorumPeer;
     private static QuorumPeerConfig quorumPeerConfig;
@@ -73,16 +74,15 @@ public class Env extends org.fusesource.lmdbjni.Env implements LeaderSelectorLis
 
     private static BookKeeper bookkeeper;
 
-    private static DB ldb;
-
     private final long myid;
 
     private volatile boolean leader = false;
 
     private final String lastProcessedLedgerPath;
 
+    static final org.fusesource.lmdbjni.Env env = new org.fusesource.lmdbjni.Env();
+
     public Env(long myid) {
-        super();
         this.myid = myid;
         lastProcessedLedgerPath = LOG_REMOVED_PATH + "/" + myid;
     }
@@ -96,20 +96,17 @@ public class Env extends org.fusesource.lmdbjni.Env implements LeaderSelectorLis
     }
 
     public void open(String path, int flags, int mode, Properties zk, Properties bk) throws IOException, QuorumPeerConfig.ConfigException, InterruptedException, BookieException, KeeperException, ReplicationException.CompatibilityException, ReplicationException.UnavailableException, ConfigurationException {
-        super.open(path, flags, mode);
-        openLevelDB(path);
+        env.open(path, flags, mode);
         startZookeeper(path, zk);
         startBookKeeper(path, bk);
     }
 
-    @Override
     public void close() {
         if(bookkeeper != null) try { bookkeeper.close(); } catch (Exception e) { logger.warn("",e); }
         if(curator != null) curator.close();
         if(bookie != null) bookie.shutdown();
         if(quorumPeer != null) quorumPeer.shutdown();
-        if(ldb != null) try { ldb.close(); } catch (Exception e) { logger.warn("",e); }
-        super.close();
+        env.close();
     }
 
     @Override
@@ -137,6 +134,111 @@ public class Env extends org.fusesource.lmdbjni.Env implements LeaderSelectorLis
 
     public boolean leader() {
         return leader;
+    }
+
+
+    public void setMapSize(long size) {
+        env.setMapSize(size);
+    }
+
+    public void setMaxDbs(long size) {
+        env.setMaxDbs(size);
+    }
+
+    public Database openDatabase(String name) throws Exception {
+        createZKPath(DB_NAME_MAP_PATH + "/" + BaseEncoding.base16().encode(Hashing.crc32c().hashBytes(bytes(name)).asBytes()));
+        return new Database(name, this);
+    }
+
+    public int getClusterSize() {
+        return quorumPeerConfig == null ? -1 : quorumPeerConfig.getServers().size();
+    }
+
+    public ReadTransaction createReadTransaction() {
+        return new ReadTransaction(this);
+    }
+
+    public WriteTransaction createWriteTransaction() {
+        return new WriteTransaction(this);
+    }
+
+    public static long byteArrayToLong(byte[] array, int offset) {
+        return ((long)(array[offset]   & 0xff) << 56) |
+                ((long)(array[offset+1] & 0xff) << 48) |
+                ((long)(array[offset+2] & 0xff) << 40) |
+                ((long)(array[offset+3] & 0xff) << 32) |
+                ((long)(array[offset+4] & 0xff) << 24) |
+                ((long)(array[offset+5] & 0xff) << 16) |
+                ((long)(array[offset+6] & 0xff) << 8) |
+                ((long)(array[offset+7] & 0xff));
+    }
+
+    public static byte[] longToByteArray(long l) {
+        return new byte[] {
+                (byte)(0xff & (l >> 56)),
+                (byte)(0xff & (l >> 48)),
+                (byte)(0xff & (l >> 40)),
+                (byte)(0xff & (l >> 32)),
+                (byte)(0xff & (l >> 24)),
+                (byte)(0xff & (l >> 16)),
+                (byte)(0xff & (l >> 8)),
+                (byte)(0xff & l)
+        };
+    }
+
+    public static long byteArrayToLong(byte[] array) {
+        return byteArrayToLong(array,0);
+    }
+
+    LedgerHandle createLedger() {
+        if(!leader) throw new NotLeaderException();
+        LedgerHandle lh = null;
+        int n = getClusterSize();
+        do try {
+            try {
+                final int m = n > 2 ? n - 1 : n;
+                lh = Env.bookkeeper.createLedger(n, m, m, BookKeeper.DigestType.MAC, new byte[]{0x00});
+            } catch (BKException bke) {
+                if (bke.getCode() != BKException.Code.NotEnoughBookiesException) throw bke;
+                else {
+                    if (n > 2) n--;
+                    TimeUnit.SECONDS.sleep(1);
+                }
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } while (lh == null);
+        return lh;
+    }
+
+    void commitLedger(LedgerHandle lh) {
+        if(!leader) throw new NotLeaderException();
+        try {
+            lh.close();
+            Stat stat = new Stat();
+            for (Long id : quorumPeerConfig.getServers().keySet()) {
+                final String p = LOG_LIST_PATH + "/" + id;
+                byte[] ledgerList = curator.getData().storingStatIn(stat).forPath(p);
+                curator.setData().withVersion(stat.getVersion()).forPath(p, Bytes.concat(ledgerList, longToByteArray(lh.getId()), longToByteArray(System.currentTimeMillis())));
+            }
+        } catch (Exception e) {
+            try { bookkeeper.deleteLedger(lh.getId()); } catch (Exception i) {}
+            throw new RuntimeException("commit problem. the ledger with id " + lh.getId() + " removal was attempted after the exception: " + e.getMessage(), e);
+        }
+    }
+
+    void abortLedger(LedgerHandle lh) {
+        if(!leader) throw new NotLeaderException();
+        try { lh.close(); } catch (Exception i) {}
+        try { bookkeeper.deleteLedger(lh.getId()); } catch (Exception i) {}
+    }
+
+    void dropDatabase(byte[] id) {
+        try {
+            curator.delete().forPath(DB_NAME_MAP_PATH + "/" + BaseEncoding.base16().encode(id));
+        } catch(Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private void startZookeeper(String path, Properties zk) throws IOException, QuorumPeerConfig.ConfigException {
@@ -196,32 +298,17 @@ public class Env extends org.fusesource.lmdbjni.Env implements LeaderSelectorLis
 
         try {
             Stat stat = new Stat();
-            final String lpath = "/ledgers";
-            final String lapath = lpath + "/available";
 
-            if(curator.checkExists().forPath(lpath) == null) {
-                curator.create().forPath(lpath);
-                curator.setData().withVersion(new Stat().getVersion()).forPath(lpath, new byte[]{});
-            }
-            if(curator.checkExists().forPath(lapath) == null) {
-                curator.create().forPath(lapath);
-                curator.setData().withVersion(new Stat().getVersion()).forPath(lapath, new byte[]{});
-            }
-            if(curator.checkExists().forPath(LOG_PATH) == null) {
-                curator.create().forPath(LOG_PATH);
-                curator.setData().withVersion(new Stat().getVersion()).forPath(LOG_PATH, new byte[]{});
-            }
-            if(curator.checkExists().forPath(LOG_REMOVED_PATH) == null) {
-                curator.create().forPath(LOG_REMOVED_PATH);
-                curator.setData().withVersion(new Stat().getVersion()).forPath(LOG_REMOVED_PATH, new byte[]{});
-            }
-            for (Long id : quorumPeerConfig.getServers().keySet()) {
-                final String nid = LOG_REMOVED_PATH + "/" + id;
-                if (curator.checkExists().forPath(nid) == null) {
-                    curator.create().forPath(nid);
-                    curator.setData().withVersion(new Stat().getVersion()).forPath(nid, new byte[]{});
-                }
-            }
+            createZKPath("/ledgers");
+            createZKPath("/available");
+            createZKPath(ZKPATH);
+            createZKPath(LOG_LIST_PATH);
+            createZKPath(LOG_REMOVED_PATH);
+
+            for (Long id : quorumPeerConfig.getServers().keySet())
+                for(String p: new String[] { LOG_LIST_PATH +"/"+id, LOG_REMOVED_PATH+"/"+ id })
+                    createZKPath(p);
+
         } catch(Exception e) {
             logger.warn("",e);
         }
@@ -259,38 +346,12 @@ public class Env extends org.fusesource.lmdbjni.Env implements LeaderSelectorLis
         bookkeeper = new BookKeeper(new ClientConfiguration().setZkServers(bk.getProperty("zkServers")).setZkTimeout(Integer.parseInt(bk.getProperty("zkTimeout"))));
     }
 
-    private static void openLevelDB(String path) throws IOException {
-        Options options = new Options();
-        options.createIfMissing(true);
-        ldb = factory.open(new File(path+"/ldb"), options);
-    }
 
-    public static long byteArrayToLong(byte[] array) {
-        return byteArrayToLong(array,0);
-    }
-
-    public static long byteArrayToLong(byte[] array, int offset) {
-        return ((long)(array[offset]   & 0xff) << 56) |
-                ((long)(array[offset+1] & 0xff) << 48) |
-                ((long)(array[offset+2] & 0xff) << 40) |
-                ((long)(array[offset+3] & 0xff) << 32) |
-                ((long)(array[offset+4] & 0xff) << 24) |
-                ((long)(array[offset+5] & 0xff) << 16) |
-                ((long)(array[offset+6] & 0xff) << 8) |
-                ((long)(array[offset+7] & 0xff));
-    }
-
-    public static byte[] longToByteArray(long l) {
-        return new byte[] {
-            (byte)(0xff & (l >> 56)),
-            (byte)(0xff & (l >> 48)),
-            (byte)(0xff & (l >> 40)),
-            (byte)(0xff & (l >> 32)),
-            (byte)(0xff & (l >> 24)),
-            (byte)(0xff & (l >> 16)),
-            (byte)(0xff & (l >> 8)),
-            (byte)(0xff & l)
-        };
+    private void createZKPath(String path) throws Exception {
+        try { curator.create().forPath(path); }
+        catch(KeeperException.NodeExistsException kne) {}
+        catch(KeeperException.NoNodeException kne) {}
+        curator.setData().withVersion(new Stat().getVersion()).forPath(path, new byte[]{});
     }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -311,7 +372,7 @@ public class Env extends org.fusesource.lmdbjni.Env implements LeaderSelectorLis
             if(!leader) {
                 System.out.println("following...");
                 byte[] lastProcessedLedger = curator.getData().forPath(lastProcessedLedgerPath);
-                byte[] ledgerList = curator.getData().forPath(LOG_PATH);
+                byte[] ledgerList = curator.getData().forPath(LOG_LIST_PATH);
 
                 int listStart = Bytes.indexOf(ledgerList, lastProcessedLedger);
                 listStart = (listStart == -1 ? 0 : listStart) + 8;
@@ -333,7 +394,7 @@ public class Env extends org.fusesource.lmdbjni.Env implements LeaderSelectorLis
             } else {
                 Stat stat = new Stat();
 
-                byte[] ledgerList = curator.getData().storingStatIn(stat).forPath(LOG_PATH);
+                byte[] ledgerList = curator.getData().storingStatIn(stat).forPath(LOG_LIST_PATH);
 
                 System.out.println("ledgerList=" + BaseEncoding.base16().encode(ledgerList));
 
@@ -363,6 +424,8 @@ public class Env extends org.fusesource.lmdbjni.Env implements LeaderSelectorLis
                 System.out.print("leading... ");
                 LedgerHandle lh = null;
                 do try {
+                    // for cluster with 2N+1 cluster members where N >= 1 and M = N-1:
+                    // try createLedger(N, M, M, ...) until N=3 then try with M=N=2
                     lh = bookkeeper.createLedger(2, 2, 2, BookKeeper.DigestType.MAC, new byte[]{0x00});
                 } catch(BKException bke) {
                     if(bke.getCode() != BKException.Code.NotEnoughBookiesException) System.out.println(bke.getMessage());
@@ -377,7 +440,7 @@ public class Env extends org.fusesource.lmdbjni.Env implements LeaderSelectorLis
                     //e.printStackTrace(System.out);
                 } finally {
                     lh.close();
-                    curator.setData().withVersion(stat.getVersion()).forPath(LOG_PATH, Bytes.concat(ledgerList, longToByteArray(lh.getId())));
+                    curator.setData().withVersion(stat.getVersion()).forPath(LOG_LIST_PATH, Bytes.concat(ledgerList, longToByteArray(lh.getId())));
                 }
                 System.out.println();
             }
@@ -398,9 +461,13 @@ public class Env extends org.fusesource.lmdbjni.Env implements LeaderSelectorLis
         bk.load(new FileInputStream(arg[2])); //"/tmp/bookieserver1.conf"));
 
         env.open("/tmp/db" + arg[0], Constants.FIXEDMAP, zk, bk);
-
-        env.stupidTest();
-
+        System.out.println("opened");
+//        env.stupidTest();
+        Database db = env.openDatabase("coldb");
+        System.out.println("created db");
+        if(env.leader()) db.put(bytes("oi"), bytes("hello"));
+        System.out.println("wrote");
         env.close();
     }
+
 }
